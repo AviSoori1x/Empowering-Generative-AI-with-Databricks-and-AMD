@@ -8,7 +8,7 @@
 #SBATCH --exclusive
 
 # SCRIPT USAGE
-#`sbatch --partition=<YOUR_PARTITION_NAME> --nodes=<NUMBER_OF_NODES> --nodelist=<HOSTNAME_ONE,HOSTNAME_TWO,...,HOSTNAME_N> nanoGPT_slurm.sh`
+# `sbatch --partition=<YOUR_PARTITION_NAME> --nodes=<YOUR_NUMBER_OF_NODES> --nodelist=<HOSTNAME_ONE,HOSTNAME_TWO,...> --export=MASTER_NODE=<MASTER_HOSTNAME> nanoGPT_slurm.sh`
 
 srun --ntasks-per-node=1 --exclusive bash -c '
 HOSTNAME=$(hostname)
@@ -16,11 +16,11 @@ HOSTNAME=$(hostname)
 # Source the `conda.sh` file, this is just an example - your path may be different
 source /opt/anaconda3/etc/profile.d/conda.sh
 
-# Activate your conda environment by name - your name may be different
+# Activate your nanoGPT conda environment by name - your name may be different
 conda activate nanoGPT
 
 # Change to the nanoGPT directory that contains the `train.py` file
-cd /path/to/your/nanoGPT/repo
+cd /path/to/your/nanoGPT/repo_dir
 
 # Function to define Pytorch commands, add your master node IP address and preferred port
 run_torch_command() {
@@ -34,13 +34,13 @@ run_torch_command() {
   eval $COMMAND
 }
 
-# Get list of hostnames from the SLURM job and determine the node rank
-NODE_LIST=($(scontrol show hostnames))
-for i in "${!NODE_LIST[@]}"; do
-  if [ "${NODE_LIST[i]}" == "$HOSTNAME" ]; then
-    run_torch_command $i
-  fi
-done
+if [ "$HOSTNAME" == "$MASTER_NODE" ]; then
+    NODE_RANK=0
+else
+    NODE_RANK=$((SLURM_NODEID + 1))
+fi
+
+run_torch_command $NODE_RANK
 
 # Deactivate the conda environment after the task completes
 conda deactivate'
